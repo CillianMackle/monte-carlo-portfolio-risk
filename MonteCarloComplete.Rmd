@@ -1,0 +1,794 @@
+```{r}
+install.packages("quantmod")
+library(quantmod)
+```
+
+```{r}
+AAPL <- getSymbols(
+  "AAPL",
+  src = "yahoo",
+  from = "2021-09-01",
+  to = "2026-09-28",
+  auto.assign = FALSE
+) 
+head(AAPL)
+```
+
+```{r}
+apple_prices <- Ad(AAPL)
+head(apple_prices)
+```
+
+```{r}
+apple_returns <- dailyReturn(apple_prices,type="arithmetic")
+
+head(apple_returns)
+```
+
+
+```{r}
+plot(apple_returns, main = "Apple Historical Daily Returns", xlab = "Date", ylab= "daily return", col = "steelblue")
+abline(h = 0, col = "yellow", lty = 2)
+```
+
+```{r}
+MSFT <- getSymbols(
+  "MSFT",
+  src = "yahoo",
+  from = "2021-09-01",
+  to = "2026-09-28",
+  auto.assign = FALSE
+)
+head(MSFT)
+msoft_prices <- Ad(MSFT)
+msoft_returns <- dailyReturn(msoft_prices,type="arithmetic")
+head(msoft_returns)
+
+```
+```{r}
+plot(msoft_returns, main = "microsoft Historical Daily Returns", xlab = "Date", ylab= "daily return", col = "steelblue")
+```
+
+```{r}
+JPM <- getSymbols(
+  "JPM",
+  src = "yahoo",
+  from = "2021-09-01",
+  to = "2026-09-28",
+  auto.assign = FALSE
+)
+head(JPM)
+jpm_prices <- Ad(JPM)
+jpm_returns <- dailyReturn(jpm_prices,type="arithmetic")
+head(jpm_returns)
+
+```
+```{r}
+plot(jpm_returns, main = "JPMorgan Historical Daily Returns", xlab = "Date", ylab= "daily return", col = "steelblue")
+```
+
+```{r}
+JNJ <- getSymbols(
+  "JNJ",
+  src = "yahoo",
+  from = "2021-09-01",
+  to = "2026-09-28",
+  auto.assign = FALSE
+)
+head(JNJ)
+jnj_prices <- Ad(JNJ)
+jnj_returns <- dailyReturn(jnj_prices,type="arithmetic")
+head(jnj_returns)
+
+```
+```{r}
+plot(jnj_returns, main = "Johnson & Johnson Historical Daily Returns", xlab = "Date", ylab= "daily return", col = "steelblue")
+```
+
+```{r}
+library(quantmod)
+
+tickers <- c("AAPL", "MSFT", "JPM", "JNJ")
+
+prices <- lapply(tickers, function(ticker) {
+  stock <- getSymbols(
+    ticker,
+    src = "yahoo",
+    from = "2021-09-01",
+    to = "2026-09-28",
+    auto.assign = FALSE
+  )
+
+  Ad(stock)
+})
+
+names(prices) <- tickers
+```
+
+```{r}
+portfolio_prices <- do.call(
+  merge,
+  c(prices, all = FALSE)
+)
+
+colnames(portfolio_prices) <- tickers
+
+
+portfolio_returns <- do.call(
+  merge,
+  lapply(
+    1:ncol(portfolio_prices),
+    function(i) Delt(portfolio_prices[, i])
+  )
+)
+
+portfolio_returns <- na.omit(portfolio_returns)
+
+colnames(portfolio_returns) <- tickers
+
+head(portfolio_returns)
+```
+
+```{r}
+# Daily expected returns
+daily_means <- colMeans(portfolio_returns)
+
+# Daily volatility
+daily_volatility <- apply(
+  portfolio_returns,
+  2,
+  sd
+)
+
+# Annualised estimates
+annual_means <- daily_means * 252
+
+annual_volatility <- daily_volatility * sqrt(252)
+
+round(annual_means, 4)
+round(annual_volatility, 4)
+```
+
+```{r}
+# Daily covariance matrix
+daily_cov <- cov(portfolio_returns)
+
+# Annualised covariance matrix
+annual_cov <- daily_cov * 252
+
+# Correlation matrix
+correlation_matrix <- cor(portfolio_returns)
+
+round(annual_cov, 4)
+round(correlation_matrix, 3)
+```
+
+```{r}
+# Define our portfolio weights
+weights <- c(0.30, 0.25, 0.25, 0.20)
+
+# Calculate expected annual portfolio return
+portfolio_mean <- sum(weights * annual_means)
+
+portfolio_mean
+
+portfolio_variance <- as.numeric(
+  t(weights) %*% annual_cov %*% weights
+)
+
+# Calculate portfolio volatility
+portfolio_volatility <- sqrt(portfolio_variance)
+
+portfolio_volatility
+   
+  
+```
+
+```{r}
+set.seed(123)
+
+# Number of simulations
+n_simulations <- 10000
+
+# Generate hypothetical annual returns
+simulated_returns <- rnorm(
+  n = n_simulations,
+  mean = portfolio_mean,
+  sd = portfolio_volatility
+)
+
+# Inspect the first six results
+head(simulated_returns)
+```
+
+```{r}
+#initial inestment 
+initial_value <- 10000
+
+# Calculate simulated final values
+final_values <- initial_value *
+  (1 + simulated_returns)
+
+# Inspect the results
+head(final_values)
+
+# Calculate the average final value
+mean(final_values)
+  
+```
+
+```{r}
+hist(
+  final_values,
+  breaks = 60,
+  main = "Monte Carlo Portfolio Simulation",
+  xlab = "Final Portfolio Value (£)",
+  col = "steelblue",
+  border = "white"
+)
+
+abline(
+  v = initial_value,
+  col = "red",
+  lwd = 2,
+  lty = 2
+)
+```
+
+```{r}
+set.seed(123)
+n_simulations <- 10000
+Z <- matrix(
+  rnorm(n_simulations* 4),
+  nrow = n_simulations,
+  ncol = 4
+)
+
+colnames(Z) <- tickers
+
+head(Z)
+```
+
+```{r}
+
+# Obtain the Cholesky factor
+U <- chol(annual_cov)
+
+# Transform independent observations
+correlated_returns <- Z %*% U
+
+# Add historical expected returns
+simulated_stock_returns <- sweep(
+  correlated_returns,
+  2,
+  annual_means,
+  "+"
+)
+
+head(simulated_stock_returns)
+  
+```
+
+```{r}
+simulated_portfolio_returns <-
+  simulated_stock_returns %*% weights
+
+head(simulated_portfolio_returns)
+mean(simulated_portfolio_returns)
+```
+
+```{r}
+#converting simulated returns into pound value
+initial_value <- 10000
+
+simulated_portfolio_values <-
+  initial_value * (1 + simulated_portfolio_returns)
+
+head(simulated_portfolio_values)
+mean(simulated_portfolio_values)
+```
+```{r}
+colMeans(simulated_stock_returns)
+
+annual_means
+
+cov(simulated_stock_returns)
+
+annual_cov
+```
+
+
+```{r}
+#running diagnostics 
+annual_means
+
+colMeans(simulated_stock_returns)
+
+colMeans(correlated_returns)
+
+colMeans(Z)
+```
+
+```{r}
+dim(simulated_stock_returns)
+dim(annual_means)
+
+annual_means
+weights
+```
+
+```{r}
+portfolio_losses <- initial_value - simulated_portfolio_values
+head(portfolio_losses)
+summary(portfolio_losses)
+VaR_95 <- quantile(portfolio_losses,0.95)
+VaR_95
+tail_losses <- portfolio_losses[portfolio_losses>VaR_95]
+head(tail_losses)
+length(tail_losses)
+ES_95 <- mean(tail_losses)
+ES_95
+```
+```{r}
+hist(
+  portfolio_losses,
+  breaks = 60,
+  main = "Monte Carlo Distribution of Portfolio Losses",
+  xlab = "Portfolio Loss (£)",
+  ylab = "Frequency",
+
+)
+abline(
+  v = VaR_95,
+  lwd = 2,
+  lty = 2
+)
+abline(
+  v = ES_95,
+  lwd = 2,
+  lty = 3
+)
+```
+
+```{r}
+#creating Q-Q plot. It compares the quantiles of Apple's actual historical returns against the quantiles we would expect from a Normal distribution.
+qqnorm(
+  portfolio_returns$AAPL,
+  main = "Normal Q-Q Plot of AAPL Daily Returns"
+)
+
+qqline(portfolio_returns$AAPL)
+```
+```{r}
+ls()
+```
+
+```{r}
+##calculating kurtosis, a measure of how heavy the tails of a distribution are.
+aapl_returns <- as.numeric(portfolio_returns$AAPL)
+
+aapl_mean <- mean(aapl_returns)
+aapl_sd <- sd(aapl_returns)
+
+aapl_kurtosis <- mean(
+  ((aapl_returns - aapl_mean) / aapl_sd)^4
+)
+
+aapl_kurtosis
+```
+
+```{r}
+##STRESS TEST 
+stressed_cov <- annual_cov * 1.5
+
+stressed_portfolio_variance <- as.numeric(
+  t(weights) %*% stressed_cov %*% weights
+)
+
+stressed_portfolio_volatility <-
+  sqrt(stressed_portfolio_variance)
+
+stressed_portfolio_volatility
+```
+
+```{r}
+(stressed_portfolio_volatility / portfolio_volatility - 1) * 100
+```
+
+```{r}
+U_stressed <- chol(stressed_cov)
+
+stressed_correlated_returns <- Z %*% U_stressed
+
+stressed_stock_returns <- sweep(
+  stressed_correlated_returns,
+  2,
+  annual_means,
+  "+"
+)
+```
+
+```{r}
+stressed_portfolio_returns <-
+  stressed_stock_returns %*% weights
+
+stressed_portfolio_values <-
+  initial_value * (1 + stressed_portfolio_returns)
+
+stressed_losses <-
+  initial_value - stressed_portfolio_values
+```
+
+```{r}
+#calculating stressed VaR, in line with the increased voltility
+stressed_VaR_95 <-
+  quantile(stressed_losses, 0.95)
+
+stressed_VaR_95
+```
+```{r}
+# calculating stressed expected shortfall
+stressed_tail_losses <- stressed_losses[stressed_losses > stressed_VaR_95]
+length(stressed_tail_losses)
+stressed_ES95<- mean(stressed_tail_losses)
+stressed_ES95
+ES_95
+```
+
+```{r}
+VaR_increase <-
+  (stressed_VaR_95 / VaR_95 - 1) * 100
+
+ES_increase <-
+  (stressed_ES95 / ES_95 - 1) * 100
+
+VaR_increase
+ES_increase
+```
+
+```{r}
+hist(
+  portfolio_losses,
+  breaks = 60,
+  probability = TRUE,
+  xlim = range(c(portfolio_losses, stressed_losses)),
+  main = "Original vs Stressed Portfolio Loss Distribution",
+  xlab = "Portfolio Loss (£)"
+)
+
+hist(
+  stressed_losses,
+  breaks = 60,
+  probability = TRUE,
+  add = TRUE
+)
+```
+
+```{r}
+plot(
+  density(portfolio_losses),
+  lwd = 2,
+  main = "Original vs Stressed Portfolio Loss Distribution",
+  xlab = "Portfolio Loss (£)",
+  ylab = "Density"
+)
+
+lines(
+  density(stressed_losses),
+  lwd = 2,
+  lty = 2
+)
+
+abline(v = VaR_95, lty = 3)
+abline(v = stressed_VaR_95, lty = 3)
+legend(
+  "topright",
+  legend = c("Original", "Stressed"),
+  lty = c(1, 2),
+  lwd = c(2, 2)
+)
+```
+```{r}
+stressed_cor <- matrix(
+  0.8,
+  nrow = 4,
+  ncol = 4
+)
+
+diag(stressed_cor) <- 1
+
+rownames(stressed_cor) <- tickers
+colnames(stressed_cor) <- tickers
+
+stressed_cor
+```
+```{r}
+annual_volatility
+D <- diag(annual_volatility)
+D
+```
+```{r}
+correlation_stressed_cov <-
+  D %*% stressed_cor %*% D
+
+correlation_stressed_cov
+```
+```{r}
+diag(annual_cov)
+diag(correlation_stressed_cov)
+```
+
+```{r}
+correlation_stressed_variance <- as.numeric(
+  t(weights) %*% correlation_stressed_cov %*% weights
+)
+
+correlation_stressed_volatility <-
+  sqrt(correlation_stressed_variance)
+
+correlation_stressed_volatility
+```
+
+```{r}
+U_correlation_stress <-
+  chol(correlation_stressed_cov)
+
+correlation_stressed_returns <-
+  Z %*% U_correlation_stress
+
+correlation_stressed_stock_returns <-
+  sweep(
+    correlation_stressed_returns,
+    2,
+    annual_means,
+    "+"
+  )
+correlation_stressed_portfolio_returns <-
+  correlation_stressed_stock_returns %*% weights
+
+correlation_stressed_portfolio_values <-
+  initial_value * (1 + correlation_stressed_portfolio_returns)
+
+correlation_stressed_losses <-
+  initial_value - correlation_stressed_portfolio_values
+sd(correlation_stressed_portfolio_returns)
+```
+```{r}
+correlation_stressed_VaR_95 <-
+  quantile(correlation_stressed_losses, 0.95)
+
+correlation_stressed_tail_losses <-
+  correlation_stressed_losses[
+    correlation_stressed_losses > correlation_stressed_VaR_95
+  ]
+
+correlation_stressed_ES_95 <-
+  mean(correlation_stressed_tail_losses)
+
+correlation_stressed_VaR_95
+correlation_stressed_ES_95
+```
+
+```{r}
+risk_summary <- data.frame(
+  Scenario = c(
+    "Original",
+    "Volatility Stress",
+    "Correlation Stress"
+  ),
+  Volatility = c(
+    portfolio_volatility,
+    stressed_portfolio_volatility,
+    correlation_stressed_volatility
+  ),
+  VaR_95 = c(
+    VaR_95,
+    stressed_VaR_95,
+    correlation_stressed_VaR_95
+  ),
+  ES_95 = c(
+    ES_95,
+    stressed_ES95,
+    correlation_stressed_ES_95
+  )
+)
+
+risk_summary
+```
+
+```{r}
+risk_values <- rbind(
+  risk_summary$VaR_95,
+  risk_summary$ES_95
+)
+
+colnames(risk_values) <- risk_summary$Scenario
+rownames(risk_values) <- c("VaR 95%", "ES 95%")
+
+barplot(
+  risk_values,
+  beside = TRUE,
+  main = "Portfolio Risk Under Stress Scenarios",
+  ylab = "Loss (£)",
+  legend.text = TRUE,
+  args.legend = list(x = "topleft")
+)
+```
+
+```{r}
+# ---------------------------------------------------------
+# MONTE CARLO PORTFOLIO PATH SIMULATION
+# ---------------------------------------------------------
+
+set.seed(123)
+
+# Daily historical parameters
+path_daily_means <- colMeans(portfolio_returns)
+path_daily_cov <- cov(portfolio_returns)
+
+# Simulation settings
+n_days <- 252
+n_paths <- 500
+initial_value <- 10000
+
+# Cholesky decomposition of daily covariance matrix
+U_daily <- chol(path_daily_cov)
+
+# Create matrix to store portfolio values
+portfolio_paths <- matrix(
+  NA,
+  nrow = n_days + 1,
+  ncol = n_paths
+)
+
+# Every simulation starts at £10,000
+portfolio_paths[1, ] <- initial_value
+
+# Simulate each trading day
+for (day in 1:n_days) {
+
+  # Generate independent standard Normal returns
+  Z_daily <- matrix(
+    rnorm(n_paths * 4),
+    nrow = n_paths,
+    ncol = 4
+  )
+
+  # Introduce historical covariance structure
+  correlated_daily_returns <- Z_daily %*% U_daily
+
+  # Add expected daily returns
+  simulated_daily_stock_returns <- sweep(
+    correlated_daily_returns,
+    2,
+    path_daily_means,
+    "+"
+  )
+
+  # Calculate portfolio return for each path
+  simulated_daily_portfolio_returns <-
+    simulated_daily_stock_returns %*% weights
+
+  # Update portfolio values
+  portfolio_paths[day + 1, ] <-
+    portfolio_paths[day, ] *
+    (1 + simulated_daily_portfolio_returns)
+}
+
+# Plot the simulated paths
+matplot(
+  0:n_days,
+  portfolio_paths,
+  type = "l",
+  lty = 1,
+  xlab = "Trading Day",
+  ylab = "Portfolio Value (£)",
+  main = "Monte Carlo Simulation of Portfolio Value"
+)
+
+# Add initial portfolio value as reference
+abline(
+  h = initial_value,
+  lty = 2,
+  lwd = 2
+)
+# Starting portfolio value
+abline(
+  h = initial_value,
+  lty = 2,
+  lwd = 2
+)
+median_path <- apply(
+  portfolio_paths,
+  1,
+  median
+)
+
+lines(
+  0:n_days,
+  median_path,
+  lwd = 4
+)
+legend(
+  "topleft",
+  legend = c(
+    "Simulated Paths",
+    "Median Path",
+    "Initial Value"
+  ),
+  lty = c(1, 1, 2),
+  lwd = c(1, 4, 2)
+)
+```
+```{r}
+# Select 100 paths for visualisation
+display_paths <- portfolio_paths[, 1:100]
+
+matplot(
+  0:n_days,
+  display_paths,
+  type = "l",
+  lty = 1,
+  xlab = "Trading Day",
+  ylab = "Portfolio Value (£)",
+  main = "Monte Carlo Simulation of Portfolio Value"
+)
+
+# Starting portfolio value
+abline(
+  h = initial_value,
+  lty = 2,
+  lwd = 2
+)
+median_path <- apply(
+  portfolio_paths,
+  1,
+  median
+)
+
+lines(
+  0:n_days,
+  median_path,
+  lwd = 4
+)
+legend(
+  "topleft",
+  legend = c(
+    "Simulated Paths",
+    "Median Path",
+    "Initial Value"
+  ),
+  lty = c(1, 1, 2),
+  lwd = c(1, 4, 2)
+)
+```
+```{r}
+final_values <- portfolio_paths[n_days + 1, ]
+
+mean_final_value <- mean(final_values)
+median_final_value <- median(final_values)
+
+mean_final_value
+median_final_value
+```
+
+```{r}
+probability_of_loss <-
+  mean(final_values < initial_value)
+
+probability_of_loss
+```
+
+```{r}
+final_value_range <- quantile(
+  final_values,
+  c(0.05, 0.95)
+)
+
+final_value_range
+```
+
+```{r}
+round(cor(portfolio_returns), 2)
+```
+
